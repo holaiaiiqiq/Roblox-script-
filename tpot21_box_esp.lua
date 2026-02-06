@@ -1,50 +1,48 @@
--- TPOT21 Box ESP (Loader)
--- Compatible con Delta
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local workspace = game:GetService("Workspace")
 
-local ESP_COLOR = Color3.fromRGB(0, 255, 100)
+local COLOR = Color3.fromRGB(0, 255, 255)
+local highlights = {}
 
-for _,v in pairs(workspace:GetDescendants()) do
-    if v:IsA("Highlight") and v.Name == "CorrectBoxESP" then
-        v:Destroy()
+local function clear()
+    for _,h in pairs(highlights) do
+        if h then h:Destroy() end
     end
+    highlights = {}
 end
 
-local function espBox(box)
-    if box:FindFirstChild("CorrectBoxESP") then return end
+local function isBox(part)
+    return part:IsA("Part")
+       and part.Size.X > 3
+       and part.Size.Y > 3
+       and part.Size.Z > 3
+       and part:FindFirstChildOfClass("SurfaceGui")
+end
+
+local function esp(part)
     local h = Instance.new("Highlight")
-    h.Name = "CorrectBoxESP"
-    h.FillColor = ESP_COLOR
+    h.FillColor = COLOR
     h.OutlineColor = Color3.new(1,1,1)
-    h.FillTransparency = 0.3
+    h.FillTransparency = 0.4
     h.OutlineTransparency = 0
-    h.Adornee = box
-    h.Parent = box
-end
-
-local function scanBoxes()
-    for _,box in pairs(workspace:GetDescendants()) do
-        if box:IsA("Model") or box:IsA("Part") then
-            for _,child in pairs(box:GetDescendants()) do
-                if child.Name:lower():find("cake")
-                or child.Name:lower():find("pastel")
-                or child.Name:lower():find("sandwich")
-                or child:IsA("TouchTransmitter") then
-                    espBox(box)
-                end
-            end
-        end
-    end
+    h.Adornee = part
+    h.Parent = part
+    table.insert(highlights, h)
 end
 
 task.spawn(function()
     while true do
-        scanBoxes()
-        task.wait(1)
+        clear()
+        for _,v in pairs(workspace:GetDescendants()) do
+            if isBox(v) then
+                esp(v)
+            end
+        end
+        task.wait(2)
     end
 end)
 
-print("✅ TPOT21 Box ESP activo")
+print("✅ TPOT21 Box ESP cargado")
+
