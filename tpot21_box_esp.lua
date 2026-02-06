@@ -1,79 +1,87 @@
--- TPOT21 Box Order Assistant
--- Ayuda a completar el reto de ORDEN de cajas
--- Delta compatible
+-- TPOT21 Box Order Assistant (FIX CAJAS)
+-- Detecta cajas como MODELS
 
 local Players = game:GetService("Players")
 local player = Players.LocalPlayer
 local workspace = game:GetService("Workspace")
-local RunService = game:GetService("RunService")
 
--- Config
-local OPENED_COLOR = Color3.fromRGB(0, 255, 0)     -- cajas ya abiertas
-local PENDING_COLOR = Color3.fromRGB(255, 255, 0) -- cajas que faltan
-local LAST_COLOR = Color3.fromRGB(255, 0, 0)      -- última caja abierta
+-- Colores
+local COLOR_PENDING = Color3.fromRGB(255, 255, 0)
+local COLOR_OPENED  = Color3.fromRGB(0, 255, 0)
+local COLOR_LAST    = Color3.fromRGB(255, 0, 0)
 
--- Data
-local openedOrder = {}      -- guarda el orden
-local boxData = {}          -- [box] = {highlight}
+local boxes = {}   -- [model] = {highlight, opened}
 local lastBox = nil
+local openedCount = 0
 
--- Utils
-local function makeHighlight(part, color)
+-- Crear Highlight
+local function makeHighlight(adornee, color)
     local h = Instance.new("Highlight")
     h.FillColor = color
     h.OutlineColor = Color3.new(1,1,1)
     h.FillTransparency = 0.35
     h.OutlineTransparency = 0
-    h.Adornee = part
-    h.Parent = part
+    h.Adornee = adornee
+    h.Parent = adornee
     return h
 end
 
-local function isBox(part)
-    return part:IsA("Part")
-        and part.Size.X > 3
-        and part.Size.Y > 3
-        and part.Size.Z > 3
-        and part.CanCollide
+-- Heurística de caja (MODEL)
+local function isBoxModel(model)
+    if not model:IsA("Model") then return false end
+    if not model.PrimaryPart then return false end
+
+    -- tamaño mínimo
+    local size = model:GetExtentsSize()
+    if size.Magnitude < 6 then return false end
+
+    -- muchas cajas tienen SurfaceGui o ClickDetector
+    for _,v in pairs(model:GetDescendants()) do
+        if v:IsA("SurfaceGui") or v:IsA("ClickDetector") then
+            return true
+        end
+    end
+
+    return false
 end
 
--- Scan cajas
+-- Escanear cajas
 local function scanBoxes()
     for _,v in pairs(workspace:GetDescendants()) do
-        if isBox(v) and not boxData[v] then
-            boxData[v] = {
-                part = v,
-                highlight = makeHighlight(v, PENDING_COLOR),
-                opened = false
+        if isBoxModel(v) and not boxes[v] then
+            boxes[v] = {
+                model = v,
+                opened = false,
+                highlight = makeHighlight(v, COLOR_PENDING)
             }
 
-            -- Detectar interacción (cuando la abres)
-            v.Touched:Connect(function(hit)
-                if hit and hit.Parent == player.Character and not boxData[v].opened then
-                    boxData[v].opened = true
-                    table.insert(openedOrder, v)
+            -- detectar apertura: algo del modelo cambia
+            v.DescendantAdded:Connect(function(desc)
+                if not boxes[v].opened then
+                    boxes[v].opened = true
+                    openedCount += 1
                     lastBox = v
-                    print("📦 Caja abierta #" .. #openedOrder)
+                    print("📦 Caja abierta #" .. openedCount)
                 end
             end)
         end
     end
 end
 
--- Update visual
+-- Actualizar colores
 local function updateESP()
-    for box,info in pairs(boxData) do
-        if info.highlight then
-            if info.opened then
-                info.highlight.FillColor = OPENED_COLOR
+    for model,data in pairs(boxes) do
+        if data.highlight then
+            if data.opened then
+                data.highlight.FillColor = COLOR_OPENED
             else
-                info.highlight.FillColor = PENDING_COLOR
+                data.highlight.FillColor = COLOR_PENDING
             end
         end
     end
 
-    if lastBox and boxData[lastBox] then
-        boxData[lastBox].highlight.FillColor = LAST_COLOR
+    if lastBox and boxes[lastBox] then
+        boxes[lastBox].highlight.FillColor = COLOR_LAST
     end
 end
 
@@ -86,5 +94,5 @@ task.spawn(function()
     end
 end)
 
-print("✅ TPOT21 Order Assistant cargado")
-print("👉 Abre las cajas en orden. Verde = abiertas | Amarillo = faltan | Rojo = última")
+print("✅ TPOT21 Box Order Assistant (cajas) cargado")
+print("🟡 Amarillo = sin abrir | 🟢 Verde = abiertas | 🔴 Roja = última")
